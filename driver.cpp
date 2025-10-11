@@ -2,9 +2,23 @@
 #include <unordered_map>
 #include <string>
 #include <variant>
+#include <ctime>
 
 #include "crow.h"
 #include "cpr/cpr.h"
+
+#include "tracer_common.h"
+#include "opentelemetry/exporters/ostream/span_exporter_factory.h"
+#include "opentelemetry/sdk/trace/exporter.h"
+#include "opentelemetry/sdk/trace/processor.h"
+#include "opentelemetry/sdk/trace/simple_processor_factory.h"
+#include "opentelemetry/sdk/trace/tracer_provider_factory.h"
+#include "opentelemetry/trace/provider.h"
+
+using namespace std;
+namespace trace_api = opentelemetry::trace;
+namespace trace_sdk = opentelemetry::sdk::trace;
+namespace trace_exporter = opentelemetry::exporter::trace;
 
 class LogHandler : public crow::ILogHandler
 {
@@ -42,33 +56,41 @@ int main(int argc, char *argv[]) {
 
   CROW_ROUTE(app, "/")
   .methods("GET"_method)([&app_config](const crow::request& req){
-      auto page = crow::mustache::load("index.html");
-      CROW_LOG_INFO << std::format("GET {}/todos/", 
-        std::get<std::string>(app_config["BACKEND_URL"])
-      );
+    auto tracer = opentelemetry::trace::Provider::GetTracerProvider()->GetTracer("todoui-cpp-tracer");
+    auto span = tracer->StartSpan("GetTodos");
 
-      auto build_elements = [&](const crow::json::rvalue &json) {
-        std::vector<crow::mustache::context> v;
-        for(auto t : json){
-          crow::mustache::context c;
-          c["todo"] = t;
-          v.push_back(std::move(c));
-        }
-        return v;
-      };
+    auto page = crow::mustache::load("index.html");
+    CROW_LOG_INFO << std::format("GET {}/todos/", 
+      std::get<std::string>(app_config["BACKEND_URL"])
+    );
 
-      crow::mustache::context todos;
-      auto cpr_resp = cpr::Get(cpr::Url{
-        std::get<std::string>(app_config["BACKEND_URL"])
-      });
-      todos["todos"] = crow::json::wvalue::list(
-        build_elements(crow::json::load(cpr_resp.text))
-      );
-      return page.render(todos);
+    auto build_elements = [&](const crow::json::rvalue &json) {
+      std::vector<crow::mustache::context> v;
+      for(auto t : json){
+        crow::mustache::context c;
+        c["todo"] = t;
+        v.push_back(std::move(c));
+      }
+      return v;
+    };
+
+    crow::mustache::context todos;
+    auto cpr_resp = cpr::Get(cpr::Url{
+      std::get<std::string>(app_config["BACKEND_URL"])
+    });
+    todos["todos"] = crow::json::wvalue::list(
+      build_elements(crow::json::load(cpr_resp.text))
+    );
+    span->End();
+
+    return page.render(todos);
   });
 
   CROW_ROUTE(app, "/add")
   .methods("POST"_method)([&app_config](const crow::request& req){
+    auto tracer = opentelemetry::trace::Provider::GetTracerProvider()->GetTracer("todoui-cpp-tracer");
+    auto span = tracer->StartSpan("AddTodo");
+
     CROW_LOG_INFO << std::format("POST  {}/todos/{}",
         std::get<std::string>(app_config["BACKEND_URL"]), req.body
     );
@@ -81,6 +103,8 @@ int main(int argc, char *argv[]) {
       << cpr_resp.status_code 
       << " CPR response: " << cpr_resp.text;
 
+    span->End();
+
     crow::response resp;
     resp.moved("/");
     return resp;
@@ -88,6 +112,9 @@ int main(int argc, char *argv[]) {
 
   CROW_ROUTE(app, "/delete")
   .methods("POST"_method)([&app_config](const crow::request& req){
+    auto tracer = opentelemetry::trace::Provider::GetTracerProvider()->GetTracer("todoui-cpp-tracer");
+    auto span = tracer->StartSpan("DeleteTodo");
+
     CROW_LOG_INFO << std::format("POST  {}/todos/{}",
       std::get<std::string>(app_config["BACKEND_URL"]), req.body
     );
@@ -98,6 +125,8 @@ int main(int argc, char *argv[]) {
     });
     CROW_LOG_DEBUG << "Delete| CPR status code: " 
       << cpr_resp.status_code << " CPR response: " << cpr_resp.text;
+
+    span->End();
 
     crow::response resp;
     resp.moved("/");
