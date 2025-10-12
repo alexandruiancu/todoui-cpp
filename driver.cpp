@@ -52,6 +52,8 @@ int main(int argc, char *argv[]) {
       app_config["BACKEND_URL"] = pszEnvBackendURL;
   }
 
+  InitTracer();
+
   crow::SimpleApp app;
 
   CROW_ROUTE(app, "/")
@@ -137,5 +139,6 @@ int main(int argc, char *argv[]) {
     std::get<uint32_t>(app_config["FRONTEND_PORT"])
   ).multithreaded().run();
 
+  CleanupTracer();
   return 0;
 }

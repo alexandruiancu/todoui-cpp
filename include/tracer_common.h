@@ -28,6 +28,8 @@
 #include "opentelemetry/sdk/trace/tracer_provider_factory.h"
 #include "opentelemetry/sdk/trace/batch_span_processor_factory.h"
 #include "opentelemetry/sdk/trace/batch_span_processor_options.h"
+#include <opentelemetry/sdk/resource/resource.h>
+
 #include "opentelemetry/trace/propagation/http_trace_context.h"
 #include "opentelemetry/trace/provider.h"
 
@@ -126,9 +128,9 @@ auto build_processor(uint16_t port = 0) {
       }
 
       opentelemetry::exporter::otlp::OtlpGrpcExporterOptions opts;
-      opts.endpoint = "localhost:" + std::to_string(port);
-      opts.use_ssl_credentials = false;
-      //opts.use_ssl_credentials = true;
+      opts.endpoint                           = "localhost:" + std::to_string(port);
+      opts.use_ssl_credentials                = false;
+      //opts.use_ssl_credentials              = true;
       //opts.ssl_credentials_cacert_as_string = "ssl-certificate";
       auto exporter = opentelemetry::exporter::otlp::OtlpGrpcExporterFactory::Create(opts);
 
@@ -158,6 +160,15 @@ auto build_processor(uint16_t port = 0) {
 }
 
 void InitTracer() {
+  // Create a resource with service name
+  auto resource_attributes = opentelemetry::sdk::resource::ResourceAttributes {
+      {"service.name", "todoui-cpp-service"},
+      {"service.version", "1.0.0"},
+      {"service.instance.id", "instance-1"}
+  };
+  
+  auto resource = opentelemetry::sdk::resource::Resource::Create(resource_attributes);
+
   std::vector<std::unique_ptr<trace_sdk::SpanProcessor>> processors;
   processors.push_back(
     std::move(build_processor<opentelemetry::exporter::trace::OStreamSpanExporter, void>()));
@@ -170,7 +181,11 @@ void InitTracer() {
               opentelemetry::exporter::otlp::OtlpGrpcExporterOptions>()
               ));
 
-  std::shared_ptr<opentelemetry::trace::TracerProvider> provider = trace_sdk::TracerProviderFactory::Create(std::move(processors));
+  std::shared_ptr<opentelemetry::trace::TracerProvider> provider = 
+    trace_sdk::TracerProviderFactory::Create(
+      std::move(processors),
+      resource
+    );
   opentelemetry::trace::Provider::SetTracerProvider(provider);
 }
 
