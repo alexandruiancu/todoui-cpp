@@ -14,6 +14,11 @@
 #include "opentelemetry/sdk/trace/simple_processor_factory.h"
 #include "opentelemetry/sdk/trace/tracer_provider_factory.h"
 #include "opentelemetry/trace/provider.h"
+//http sem conv
+#include "opentelemetry/semconv/url_attributes.h"
+#include "opentelemetry/semconv/http_attributes.h"
+//service sem conv
+#include "opentelemetry/semconv/service_attributes.h"
 
 using namespace std;
 namespace trace_api = opentelemetry::trace;
@@ -52,7 +57,15 @@ int main(int argc, char *argv[]) {
       app_config["BACKEND_URL"] = pszEnvBackendURL;
   }
 
-  InitTracer();
+  // Create a resource with service name
+  auto resource_attributes = opentelemetry::sdk::resource::ResourceAttributes {
+    // loop over app_config["OTEL_RESOURCE_ATTRIBUTES"]
+    {opentelemetry::semconv::service::kServiceName, "todoui-cpp-service"},
+    {opentelemetry::semconv::service::kServiceVersion, "1.0.0"},
+    {"service.instance.id", "instance-1"}
+  };
+
+  InitTracer(resource_attributes);
 
   crow::SimpleApp app;
 

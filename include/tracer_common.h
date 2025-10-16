@@ -107,32 +107,8 @@ namespace
   
     ClientContext *context_ = nullptr;
   };
-  
-  class GrpcServerCarrier : public opentelemetry::context::propagation::TextMapCarrier
-  {
-  public:
-    GrpcServerCarrier(ServerContext *context) : context_(context) {}
-    GrpcServerCarrier() = default;
-    virtual opentelemetry::nostd::string_view Get(
-        opentelemetry::nostd::string_view key) const noexcept override
-    {
-      auto it = context_->client_metadata().find({key.data(), key.size()});
-      if (it != context_->client_metadata().end())
-      {
-        return opentelemetry::nostd::string_view(it->second.data(), it->second.size());
-      }
-      return "";
-    }
-  
-    virtual void Set(opentelemetry::nostd::string_view /* key */,
-                     opentelemetry::nostd::string_view /* value */) noexcept override
-    {
-      // Not required for server
-    }
-  
-    ServerContext *context_ = nullptr;
-  };
 
+// handy for debug
 //auto build_console_processor()
 //{
 //  auto exporter = opentelemetry::exporter::trace::OStreamSpanExporterFactory::Create();
@@ -196,15 +172,13 @@ namespace
     return processor_fnc.template operator()<ExporterT>();
   }
   
-  void InitTracer() {
-    // Create a resource with service name
-    auto resource_attributes = opentelemetry::sdk::resource::ResourceAttributes {
-        {"service.name", "todoui-cpp-service"},
-        {"service.version", "1.0.0"},
-        {"service.instance.id", "instance-1"}
-    };
-    
-    auto resource = opentelemetry::sdk::resource::Resource::Create(resource_attributes);
+  void InitTracer(opentelemetry::sdk::resource::ResourceAttributes ra) {
+    // set global propagator
+    opentelemetry::context::propagation::GlobalTextMapPropagator::SetGlobalPropagator(
+      opentelemetry::nostd::shared_ptr<opentelemetry::context::propagation::TextMapPropagator>(
+          new opentelemetry::trace::propagation::HttpTraceContext()));
+
+    auto resource = opentelemetry::sdk::resource::Resource::Create(ra);
   
     std::vector<std::unique_ptr<trace_sdk::SpanProcessor>> processors;
     //processors.push_back(
