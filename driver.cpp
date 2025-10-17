@@ -7,7 +7,6 @@
 #include "crow.h"
 #include "cpr/cpr.h"
 
-#include "tracer_common.h"
 #include "opentelemetry/exporters/ostream/span_exporter_factory.h"
 #include "opentelemetry/sdk/trace/exporter.h"
 #include "opentelemetry/sdk/trace/processor.h"
@@ -20,19 +19,15 @@
 //service sem conv
 #include "opentelemetry/semconv/service_attributes.h"
 
+#include "instrument_logger.h"
+#include "tracer_common.h"
+
 using namespace std;
 namespace trace_api = opentelemetry::trace;
 namespace trace_sdk = opentelemetry::sdk::trace;
 namespace trace_exporter = opentelemetry::exporter::trace;
 
-class LogHandler : public crow::ILogHandler
-{
-public:
-    void log(const std::string& message, crow::LogLevel /*level*/) override
-    {
-        std::cerr << "LogHandler -> " << message;
-    }
-};
+InstrumentLogger glblLogger;
 
 int main(int argc, char *argv[]) {
   // set defaults
@@ -42,6 +37,7 @@ int main(int argc, char *argv[]) {
           {"BACKEND_URL", "http://localhost:8080/todos/"}
   };
 
+  crow::logger::setHandler(&glblLogger);
   //crow::logger::setLogLevel(crow::LogLevel::Debug);
   //crow::logger::setLogLevel(crow::LogLevel::Info);
   crow::logger::setLogLevel(crow::LogLevel::Warning);

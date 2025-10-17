@@ -22,20 +22,33 @@ CPMAddPackage(
         "WITH_EXAMPLES OFF"
         "WITH_TESTS OFF"
 )
-CPMAddPackage("gh:crowcpp/crow@1.3.0")
+CPMAddPackage(
+    NAME crow
+    GITHUB_REPOSITORY crowcpp/crow
+    GIT_TAG v1.3.0
+    OPTIONS
+        "CROW_BUILD_EXAMPLES=OFF"
+        "CROW_BUILD_TESTS=OFF"
+)
 CPMAddPackage("gh:libcpr/cpr#1.12.0")
+CPMAddPackage("gh:gabime/spdlog@1.16.0")
 
 set(include_DIR "${todoui-cpp_SOURCE_DIR}/include")
 add_executable(todoui-cpp "driver.cpp")
 
 target_include_directories (todoui-cpp PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include")
 target_link_libraries(todoui-cpp PRIVATE 
+    # Crow targets
     Crow::Crow cpr::cpr
+    # opentelemetry targets
     opentelemetry-cpp::api
     opentelemetry-cpp::sdk
     opentelemetry-cpp::ostream_span_exporter
     opentelemetry-cpp::otlp_http_exporter
-    opentelemetry-cpp::otlp_grpc_exporter)
+    opentelemetry-cpp::otlp_grpc_exporter
+    # spdlog targets
+    spdlog::spdlog_header_only
+)
 
 add_custom_command(TARGET todoui-cpp POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
