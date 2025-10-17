@@ -36,3 +36,9 @@ target_link_libraries(todoui-cpp PRIVATE
     opentelemetry-cpp::ostream_span_exporter
     opentelemetry-cpp::otlp_http_exporter
     opentelemetry-cpp::otlp_grpc_exporter)
+
+add_custom_command(TARGET todoui-cpp POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_CURRENT_SOURCE_DIR}/templates
+    $<TARGET_FILE_DIR:todoui-cpp>/templates
+)
