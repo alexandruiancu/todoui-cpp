@@ -11,25 +11,16 @@ struct RequestSpan : crow::ILocalMiddleware
     // Values from this context can be accessed from handlers
     struct context
     {
-        std::vector<std::pair<opentelemetry::nostd::string_view, 
-            opentelemetry::common::AttributeValue>>
-        collect_request_attributes(const crow::request &req) {
-            std::vector<std::pair<opentelemetry::nostd::string_view, 
-                opentelemetry::common::AttributeValue>> attributes;
-
-            //TODO: implement
-            attributes.push_back(std::make_pair(opentelemetry::semconv::url::kUrlFull, "http://localhost:5000"/*req.raw_url*/));
-            attributes.push_back(std::make_pair(opentelemetry::semconv::url::kUrlScheme, "http"));
-            attributes.push_back(std::make_pair(opentelemetry::semconv::http::kHttpRequestMethod, "GET"/*crow::method_name(req.method)*/));
-
-            return attributes;
-        }
         void StartSpan(crow::request& req, crow::response& res){
             tracer = get_tracer("todoui-cpp-service");
             // start internal or server span
             opentelemetry::trace::StartSpanOptions options;
             options.kind = opentelemetry::trace::SpanKind::kServer;
-            span = tracer->StartSpan(req.url, collect_request_attributes(req), options);
+            span = tracer->StartSpan(req.url, 
+              {{std::make_pair(opentelemetry::semconv::url::kUrlFull, "http://localhost:5000")},
+              {std::make_pair(opentelemetry::semconv::url::kUrlScheme, "http")},
+              {std::make_pair(opentelemetry::semconv::http::kHttpRequestMethod, "GET")}},
+              options);
             auto active_scope = tracer->WithActiveSpan(span);
 
             // inject context

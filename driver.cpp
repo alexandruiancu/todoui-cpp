@@ -1,7 +1,5 @@
 #include <cstdlib>
-#include <unordered_map>
 #include <string>
-#include <variant>
 #include <ctime>
 
 #include "crow.h"
@@ -21,6 +19,7 @@
 
 #include "instrument_logger.h"
 #include "tracer_common.h"
+#include "utils.h"
 
 using namespace std;
 namespace trace_api = opentelemetry::trace;
@@ -30,28 +29,16 @@ namespace trace_exporter = opentelemetry::exporter::trace;
 InstrumentLogger glblLogger;
 
 int main(int argc, char *argv[]) {
-  // set defaults
-  using ConfigValT = std::variant<std::string, uint32_t>;
-  std::unordered_map<std::string, ConfigValT> app_config={
-          {"FRONTEND_PORT", (uint32_t)5000},
-          {"BACKEND_URL", "http://localhost:8080/todos/"}
-  };
+  ConfigMapT app_config;
+  int n_error = init_app_config(app_config);
+  if (0 != n_error) {
+    return n_error;
+  }
 
   crow::logger::setHandler(&glblLogger);
   //crow::logger::setLogLevel(crow::LogLevel::Debug);
   //crow::logger::setLogLevel(crow::LogLevel::Info);
   crow::logger::setLogLevel(crow::LogLevel::Warning);
-
-  // update with environment
-  {
-    const char *pszEnvFrontendPort = std::getenv("BACKEND_PORT");
-    if (pszEnvFrontendPort != nullptr)
-      app_config["FRONTEND_PORT"] = pszEnvFrontendPort;
-
-    const char *pszEnvBackendURL = std::getenv("BACKEND_URL");
-    if (pszEnvBackendURL != nullptr)
-      app_config["BACKEND_URL"] = pszEnvBackendURL;
-  }
 
   // Create a resource with service name
   auto resource_attributes = opentelemetry::sdk::resource::ResourceAttributes {
@@ -61,29 +48,34 @@ int main(int argc, char *argv[]) {
     {"service.instance.id", "instance-1"}
   };
 
-  InitTracer(resource_attributes);
+  n_error = init_attributes(app_config, resource_attributes);
+  if (0 != n_error) {
+    return n_error;
+  }
+
+  InitTracer(app_config, resource_attributes);
 
   crow::SimpleApp app;
 
   CROW_ROUTE(app, "/")
-  .methods("GET"_method)([&app_config](const crow::request& req){
+      .methods("GET"_method)([&app_config](const crow::request& req){
     std::string span_name("GET");
-    auto tracer = get_tracer("todoui-cpp-tracer");
-    // start active span
-    opentelemetry::trace::StartSpanOptions options;
-    options.kind = opentelemetry::trace::SpanKind::kClient;  // client
-    //opentelemetry::ext::http::common::UrlParser url_parser(
-    //  std::get<std::string>(app_config["BACKEND_URL"])
-    //);
-    cpr::Url url{
-      std::get<std::string>(app_config["BACKEND_URL"])
-    };
-    auto span = tracer->StartSpan(span_name,
-                              {{opentelemetry::semconv::url::kUrlFull, url.str()},
-                               {opentelemetry::semconv::url::kUrlScheme, "http"/*url_parser.scheme_*/},
-                               {opentelemetry::semconv::http::kHttpRequestMethod, "GET"}},
-                              options);
-    auto active_scope = tracer->WithActiveSpan(span);
+        auto tracer = get_tracer("todoui-cpp-tracer");
+        // start active span
+        opentelemetry::trace::StartSpanOptions options;
+        options.kind = opentelemetry::trace::SpanKind::kClient;  // client
+        //opentelemetry::ext::http::common::UrlParser url_parser(
+        //  std::get<std::string>(app_config["BACKEND_URL"])
+        //);
+        cpr::Url url{
+          opentelemetry::nostd::get<std::string>(app_config["BACKEND_URL"])
+        };
+        auto span = tracer->StartSpan(span_name,
+                                  {{opentelemetry::semconv::url::kUrlFull, url.str()},
+                                  {opentelemetry::semconv::url::kUrlScheme, "http"/*url_parser.scheme_*/},
+                                  {opentelemetry::semconv::http::kHttpRequestMethod, "GET"}},
+                                  options);
+        auto active_scope = tracer->WithActiveSpan(span);
 
     // inject context
     auto current_ctx = opentelemetry::context::RuntimeContext::GetCurrent();
@@ -92,64 +84,64 @@ int main(int argc, char *argv[]) {
     auto propagator = opentelemetry::context::propagation::GlobalTextMapPropagator::GetGlobalPropagator();
     propagator->Inject(carrier, current_ctx);
 
-    auto page = crow::mustache::load("index.html");
-    //CROW_LOG_INFO << url_parser.url_;
-    CROW_LOG_INFO << url;
+        auto page = crow::mustache::load("index.html");
+        //CROW_LOG_INFO << url_parser.url_;
+        CROW_LOG_INFO << url;
 
-    auto build_elements = [&](const crow::json::rvalue &json) {
-      std::vector<crow::mustache::context> v;
-      for(auto t : json){
-        crow::mustache::context c;
-        c["todo"] = t;
-        v.push_back(std::move(c));
-      }
-      return v;
-    };
+        auto build_elements = [&](const crow::json::rvalue &json) {
+          std::vector<crow::mustache::context> v;
+          for(auto t : json){
+            crow::mustache::context c;
+            c["todo"] = t;
+            v.push_back(std::move(c));
+          }
+          return v;
+        };
 
-    crow::mustache::context todos;
-    /////////////////////////////////////////
-    // TODO
-    // problemtatic conversion from opentelemetry headers into cpr's
-    // std::mutimap -> std::map
-    cpr::Header crp_headers;
+        crow::mustache::context todos;
+        /////////////////////////////////////////
+        // TODO
+        // problemtatic conversion from opentelemetry headers into cpr's
+        // std::mutimap -> std::map
+        cpr::Header crp_headers;
     for (auto p : carrier.headers_){
-      crp_headers.insert(p);
-    }
-    /////////////////////////////////////////
-    auto cpr_resp = cpr::Get(url, crp_headers);
-    if(!cpr_resp.error){
-      span->SetAttribute(opentelemetry::semconv::http::kHttpResponseStatusCode, cpr_resp.status_code);
-      for(auto h : cpr_resp.header){
-        span->SetAttribute("http.header." + std::string(h.first), h.second);
-      }
-      if (cpr_resp.status_code >= 400) {
-        span->SetStatus(opentelemetry::trace::StatusCode::kError);
-      }
-    } else{
-      span->SetStatus(
-        opentelemetry::trace::StatusCode::kError,
-        "Response Status :" + cpr_resp.status_line);
-    }
-    todos["todos"] = crow::json::wvalue::list(
-      build_elements(crow::json::load(cpr_resp.text))
-    );
-    span->End();
+          crp_headers.insert(p);
+        }
+        /////////////////////////////////////////
+        auto cpr_resp = cpr::Get(url, crp_headers);
+        if(!cpr_resp.error) {
+          span->SetAttribute(opentelemetry::semconv::http::kHttpResponseStatusCode, cpr_resp.status_code);
+          for(auto h : cpr_resp.header){
+            span->SetAttribute("http.header." + std::string(h.first), h.second);
+          }
+          if (cpr_resp.status_code >= 400) {
+            span->SetStatus(opentelemetry::trace::StatusCode::kError);
+          }
+        } else {
+          span->SetStatus(
+            opentelemetry::trace::StatusCode::kError,
+            "Response Status :" + cpr_resp.status_line);
+        }
+        todos["todos"] = crow::json::wvalue::list(
+          build_elements(crow::json::load(cpr_resp.text))
+        );
+        span->End();
 
-    return page.render(todos);
-  });
+        return page.render(todos);
+      });
 
   CROW_ROUTE(app, "/add")
   .methods("POST"_method)([&app_config](const crow::request& req){
     auto tracer = opentelemetry::trace::Provider::GetTracerProvider()->GetTracer("todoui-cpp-tracer");
     auto span = tracer->StartSpan("AddTodo");
 
-    CROW_LOG_INFO << std::format("POST  {}/todos/{}",
-        std::get<std::string>(app_config["BACKEND_URL"]), req.body
+    CROW_LOG_INFO << std::format("POST  {}/todos/{}", 
+      opentelemetry::nostd::get<std::string>(app_config["BACKEND_URL"]), req.body
     );
 
     crow::query_string qs = req.get_body_params();
     auto cpr_resp = cpr::Post(cpr::Url{
-      std::get<std::string>(app_config["BACKEND_URL"]) + qs.get("todo")
+      opentelemetry::nostd::get<std::string>(app_config["BACKEND_URL"]) + qs.get("todo")
     });
     CROW_LOG_DEBUG << "Add| CPR status code: " 
       << cpr_resp.status_code 
@@ -168,12 +160,12 @@ int main(int argc, char *argv[]) {
     auto span = tracer->StartSpan("DeleteTodo");
 
     CROW_LOG_INFO << std::format("POST  {}/todos/{}",
-      std::get<std::string>(app_config["BACKEND_URL"]), req.body
+      opentelemetry::nostd::get<std::string>(app_config["BACKEND_URL"]), req.body
     );
     
     crow::query_string qs = req.get_body_params();
     auto cpr_resp = cpr::Post(cpr::Url{
-      std::get<std::string>(app_config["BACKEND_URL"]) + qs.get("todo")
+      opentelemetry::nostd::get<std::string>(app_config["BACKEND_URL"]) + qs.get("todo")
     });
     CROW_LOG_DEBUG << "Delete| CPR status code: " 
       << cpr_resp.status_code << " CPR response: " << cpr_resp.text;
@@ -186,9 +178,47 @@ int main(int argc, char *argv[]) {
   });
 
   app.port(
-    std::get<uint32_t>(app_config["FRONTEND_PORT"])
+    opentelemetry::nostd::get<uint16_t>(app_config["FRONTEND_PORT"])
   ).multithreaded().run();
 
   CleanupTracer();
+  return 0;
+}
+
+int init_app_config(ConfigMapT &config){
+  // app specific
+  const char *pszEnvFrontendPort = std::getenv("BACKEND_PORT");
+  if (pszEnvFrontendPort != nullptr)
+    config["FRONTEND_PORT"] = (uint16_t)(std::stoul(pszEnvFrontendPort));
+  const char *pszEnvBackendURL = std::getenv("BACKEND_URL");
+  if (pszEnvBackendURL != nullptr)
+    config["BACKEND_URL"] = pszEnvBackendURL;
+
+  // OTEL
+  const char *pszEnv = std::getenv("OTEL_EXPORTER_OTLP_ENDPOINT");
+  if (pszEnv != nullptr)
+    config["OTEL_EXPORTER_OTLP_ENDPOINT"] = pszEnv;
+  pszEnv = std::getenv("OTEL_RESOURCE_ATTRIBUTES");
+  if (pszEnv != nullptr)
+    config["OTEL_RESOURCE_ATTRIBUTES"] = pszEnv;
+  pszEnv = std::getenv("OTEL_METRICS_EXPORTER");
+  if (pszEnv != nullptr)
+    config["OTEL_METRICS_EXPORTER"] = pszEnv;
+
+  ConfigMapT defaults{
+    {"FRONTEND_PORT", (uint16_t)5000},
+    {"BACKEND_URL", "http://localhost:8080/todos/"}
+  };
+  std::for_each(defaults.begin(), defaults.end(), [&config](auto it){
+    if(!config.contains(it.first)){
+      config.emplace(it);
+    }
+  });
+
+  return 0;
+}
+
+int init_attributes(const ConfigMapT &config, opentelemetry::sdk::resource::ResourceAttributes &ra){
+  //TODO implement
   return 0;
 }

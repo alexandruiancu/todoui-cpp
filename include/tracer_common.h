@@ -41,6 +41,8 @@
 #include <vector>
 #include <concepts>
 
+#include "utils.h"
+
 using grpc::ClientContext;
 using grpc::ServerContext;
 namespace trace_sdk = opentelemetry::sdk::trace;
@@ -118,16 +120,22 @@ namespace
 //}
 
   template<typename ExporterT, typename ExporterOptionsT>
-  auto build_processor(uint16_t port = 0) {
+  auto build_processor(const ConfigMapT &config, uint16_t port = 0) {
   
-    auto exporter_fnc = []<typename T>(uint16_t port) {
+    auto exporter_fnc = [&config]<typename T>(uint16_t port) {
       if constexpr(std::same_as<T, opentelemetry::exporter::otlp::OtlpHttpExporterOptions>) {
         if ( 0 == port ) {
           port = nDefaultHttpCollector;
         }
   
         opentelemetry::exporter::otlp::OtlpHttpExporterOptions opts;
-        opts.url                             = "http://localhost:" + std::to_string(port) + "/v1/traces";
+        if (config.contains("OTEL_EXPORTER_OTLP_ENDPOINT")){
+          opts.url                           = opentelemetry::nostd::get<std::string>(
+            config.at("OTEL_EXPORTER_OTLP_ENDPOINT")
+          ) + "/v1/traces";
+        } else {
+          opts.url                           = "http://localhost:" + std::to_string(port) + "/v1/traces";
+        }
         opts.retry_policy_max_attempts       = 5;
         opts.retry_policy_initial_backoff    = std::chrono::duration<float>{0.1f};
         opts.retry_policy_max_backoff        = std::chrono::duration<float>{5.0f};
@@ -141,7 +149,11 @@ namespace
         }
   
         opentelemetry::exporter::otlp::OtlpGrpcExporterOptions opts;
-        opts.endpoint                           = "localhost:" + std::to_string(port);
+        if (config.contains("OTEL_EXPORTER_OTLP_ENDPOINT")) {
+          opts.endpoint                         = opentelemetry::nostd::get<std::string>(config.at("OTEL_EXPORTER_OTLP_ENDPOINT"));
+        } else {
+          opts.endpoint                         = "localhost:" + std::to_string(port);
+        }
         opts.use_ssl_credentials                = false;
         //opts.use_ssl_credentials              = true;
         //opts.ssl_credentials_cacert_as_string = "ssl-certificate";
@@ -172,7 +184,7 @@ namespace
     return processor_fnc.template operator()<ExporterT>();
   }
   
-  void InitTracer(opentelemetry::sdk::resource::ResourceAttributes ra) {
+  void InitTracer(const ConfigMapT &config, opentelemetry::sdk::resource::ResourceAttributes ra) {
     // set global propagator
     opentelemetry::context::propagation::GlobalTextMapPropagator::SetGlobalPropagator(
       opentelemetry::nostd::shared_ptr<opentelemetry::context::propagation::TextMapPropagator>(
@@ -182,14 +194,14 @@ namespace
   
     std::vector<std::unique_ptr<trace_sdk::SpanProcessor>> processors;
     //processors.push_back(
-    //  std::move(build_processor<opentelemetry::exporter::trace::OStreamSpanExporter, void>()));
+    //  std::move(build_processor<opentelemetry::exporter::trace::OStreamSpanExporter, void>(config)));
     //processors.push_back(
     //  std::move(build_processor<opentelemetry::exporter::otlp::OtlpHttpExporter, 
-    //            opentelemetry::exporter::otlp::OtlpHttpExporterOptions>()
+    //            opentelemetry::exporter::otlp::OtlpHttpExporterOptions>(config)
     //            ));
     processors.push_back(
       std::move(build_processor<opentelemetry::exporter::otlp::OtlpGrpcExporter, 
-                opentelemetry::exporter::otlp::OtlpGrpcExporterOptions>()
+                opentelemetry::exporter::otlp::OtlpGrpcExporterOptions>(config)
                 ));
   
     std::shared_ptr<opentelemetry::trace::TracerProvider> provider = 
