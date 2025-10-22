@@ -27,7 +27,7 @@ jobs:
       run: wget -O  ${{github.workspace}}/cmake/CPM.cmake https://github.com/cpm-cmake/CPM.cmake/releases/latest/download/get_cpm.cmake
 
     - name: Install xmllint
-      run: sudo apt-get install -y libasio-dev meson
+      run: sudo apt-get install -y libasio-dev meson libcurlpp-dev
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
