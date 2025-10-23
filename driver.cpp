@@ -19,6 +19,7 @@
 
 #include "instrument_logger.h"
 #include "tracer_common.h"
+#include "crow_intrumentor.h"
 #include "utils.h"
 
 using namespace std;
@@ -55,11 +56,12 @@ int main(int argc, char *argv[]) {
 
   InitTracer(app_config, resource_attributes);
 
-  crow::SimpleApp app;
+  crow::App<RequestSpan> app;
 
   CROW_ROUTE(app, "/")
+    .CROW_MIDDLEWARES(app, RequestSpan)
       .methods("GET"_method)([&app_config](const crow::request& req){
-    std::string span_name("GET");
+        std::string span_name(crow::method_name(req.method));
         auto tracer = get_tracer("todoui-cpp-tracer");
         // start active span
         opentelemetry::trace::StartSpanOptions options;
@@ -70,6 +72,18 @@ int main(int argc, char *argv[]) {
         cpr::Url url{
           opentelemetry::nostd::get<std::string>(app_config["BACKEND_URL"])
         };
+        
+        // extract context from http header
+        auto extract_ctx = opentelemetry::context::RuntimeContext::GetCurrent();
+        opentelemetry::ext::http::client::Headers request_headers;
+        for ( auto p : req.headers){
+          request_headers.insert({p.first, p.second});
+        }
+        // get global propagator
+        HttpTextMapCarrier<opentelemetry::ext::http::client::Headers> carrier(request_headers);
+        auto propagator = opentelemetry::context::propagation::GlobalTextMapPropagator::GetGlobalPropagator();
+        auto new_ctx = propagator->Extract(carrier, extract_ctx);
+        options.parent = opentelemetry::trace::GetSpan(new_ctx)->GetContext();
         auto span = tracer->StartSpan(span_name,
                                   {{opentelemetry::semconv::url::kUrlFull, url.str()},
                                   {opentelemetry::semconv::url::kUrlScheme, "http"/*url_parser.scheme_*/},
@@ -77,12 +91,10 @@ int main(int argc, char *argv[]) {
                                   options);
         auto active_scope = tracer->WithActiveSpan(span);
 
-    // inject context
-    auto current_ctx = opentelemetry::context::RuntimeContext::GetCurrent();
-    // get global propagator
-    HttpTextMapCarrier<opentelemetry::ext::http::client::Headers> carrier;
-    auto propagator = opentelemetry::context::propagation::GlobalTextMapPropagator::GetGlobalPropagator();
-    propagator->Inject(carrier, current_ctx);
+        // inject context
+        auto insert_ctx = opentelemetry::context::RuntimeContext::GetCurrent();
+        HttpTextMapCarrier<opentelemetry::ext::http::client::Headers> carrier2;
+        propagator->Inject(carrier2, insert_ctx);
 
         auto page = crow::mustache::load("index.html");
         //CROW_LOG_INFO << url_parser.url_;
@@ -104,7 +116,8 @@ int main(int argc, char *argv[]) {
         // problemtatic conversion from opentelemetry headers into cpr's
         // std::mutimap -> std::map
         cpr::Header crp_headers;
-    for (auto p : carrier.headers_){
+        //for (auto p : carrier.headers_){
+        for (auto p : carrier2.headers_){
           crp_headers.insert(p);
         }
         /////////////////////////////////////////
