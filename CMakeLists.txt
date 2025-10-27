@@ -51,6 +51,13 @@ target_link_libraries(todoui-cpp PRIVATE
     spdlog::spdlog_header_only
 )
 
+add_custom_command(TARGET todoui-cpp POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_CURRENT_SOURCE_DIR}/templates
+    $<TARGET_FILE_DIR:todoui-cpp>/templates
+    COMMENT "useful when running without install, from build directory"
+)
+
 # Set the install prefix
 # use command line -DCMAKE_INSTALL_PREFIX=${workspaceFolder}/build/opt to set prefix
 
