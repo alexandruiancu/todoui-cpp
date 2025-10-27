@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
         auto new_ctx = propagator->Extract(carrier, extract_ctx);
         options.parent = opentelemetry::trace::GetSpan(new_ctx)->GetContext();
         auto span = tracer->StartSpan(span_name,
-                                  {{opentelemetry::semconv::url::kUrlFull, url.str()},
+                                  {/*{opentelemetry::semconv::url::kUrlFull, url.str()},*/
                                   {opentelemetry::semconv::url::kUrlScheme, "http"/*url_parser.scheme_*/},
                                   {opentelemetry::semconv::http::kHttpRequestMethod, "GET"}},
                                   options);
@@ -144,51 +144,162 @@ int main(int argc, char *argv[]) {
       });
 
   CROW_ROUTE(app, "/add")
-  .methods("POST"_method)([&app_config](const crow::request& req){
-    auto tracer = opentelemetry::trace::Provider::GetTracerProvider()->GetTracer("todoui-cpp-tracer");
-    auto span = tracer->StartSpan("AddTodo");
-
-    CROW_LOG_INFO << std::format("POST  {}/todos/{}", 
-      opentelemetry::nostd::get<std::string>(app_config["BACKEND_URL"]), req.body
-    );
-
-    crow::query_string qs = req.get_body_params();
-    auto cpr_resp = cpr::Post(cpr::Url{
-      opentelemetry::nostd::get<std::string>(app_config["BACKEND_URL"]) + qs.get("todo")
-    });
-    CROW_LOG_DEBUG << "Add| CPR status code: " 
-      << cpr_resp.status_code 
-      << " CPR response: " << cpr_resp.text;
-
-    span->End();
-
-    crow::response resp;
-    resp.moved("/");
-    return resp;
-  });
+    .CROW_MIDDLEWARES(app, RequestSpan)
+      .methods("POST"_method)([&app_config](const crow::request& req){
+        auto tracer = get_tracer("todoui-cpp-tracer");
+        std::string span_name(crow::method_name(req.method));
+        // start active span
+        opentelemetry::trace::StartSpanOptions options;
+        options.kind = opentelemetry::trace::SpanKind::kClient;  // client
+        cpr::Url url{
+          opentelemetry::nostd::get<std::string>(app_config["BACKEND_URL"]) + "/todos/" + req.body
+        };
+      
+        CROW_LOG_INFO << std::format("POST  {}/todos/{}", 
+          opentelemetry::nostd::get<std::string>(app_config["BACKEND_URL"]), req.body
+        );
+      
+        // extract context from http header
+        auto extract_ctx = opentelemetry::context::RuntimeContext::GetCurrent();
+        opentelemetry::ext::http::client::Headers request_headers;
+        for ( auto p : req.headers){
+          request_headers.insert({p.first, p.second});
+        }
+        // get global propagator
+        HttpTextMapCarrier<opentelemetry::ext::http::client::Headers> carrier(request_headers);
+        auto propagator = opentelemetry::context::propagation::GlobalTextMapPropagator::GetGlobalPropagator();
+        auto new_ctx = propagator->Extract(carrier, extract_ctx);
+        options.parent = opentelemetry::trace::GetSpan(new_ctx)->GetContext();
+        auto span = tracer->StartSpan(span_name,
+                                  {/*{opentelemetry::semconv::url::kUrlFull, url.str()},*/
+                                  {opentelemetry::semconv::url::kUrlScheme, "http"/*url_parser.scheme_*/},
+                                  {opentelemetry::semconv::http::kHttpRequestMethod, "POST"}},
+                                  options);
+        auto active_scope = tracer->WithActiveSpan(span);
+        
+        // inject context
+        auto insert_ctx = opentelemetry::context::RuntimeContext::GetCurrent();
+        HttpTextMapCarrier<opentelemetry::ext::http::client::Headers> carrier2;
+        propagator->Inject(carrier2, insert_ctx);
+        
+        /////////////////////////////////////////
+        // TODO
+        // problemtatic conversion from opentelemetry headers into cpr's
+        // std::mutimap -> std::map
+        cpr::Header crp_headers;
+        //for (auto p : carrier.headers_){
+        for (auto p : carrier2.headers_){
+          crp_headers.insert(p);
+        }
+        /////////////////////////////////////////
+        crow::query_string qs = req.get_body_params();
+        auto cpr_resp = cpr::Post(cpr::Url{
+            opentelemetry::nostd::get<std::string>(app_config["BACKEND_URL"]) + qs.get("todo")
+          },
+          crp_headers
+        );
+      
+        if (!cpr_resp.error){
+          span->SetAttribute(opentelemetry::semconv::http::kHttpResponseStatusCode, cpr_resp.status_code);
+          for(auto h : cpr_resp.header){
+            span->SetAttribute("http.header." + std::string(h.first), h.second);
+          }
+          if (cpr_resp.status_code >= 400) {
+            span->SetStatus(opentelemetry::trace::StatusCode::kError);
+          }
+        } else {
+          span->SetStatus(
+            opentelemetry::trace::StatusCode::kError,
+            "Response Status :" + cpr_resp.status_line);
+        }
+      
+        CROW_LOG_DEBUG << "Add| CPR status code: " 
+          << cpr_resp.status_code 
+          << " CPR response: " << cpr_resp.text;
+      
+        span->End();
+      
+        crow::response resp;
+        resp.moved("/");
+        return resp;
+      });
 
   CROW_ROUTE(app, "/delete")
-  .methods("POST"_method)([&app_config](const crow::request& req){
-    auto tracer = opentelemetry::trace::Provider::GetTracerProvider()->GetTracer("todoui-cpp-tracer");
-    auto span = tracer->StartSpan("DeleteTodo");
+    .CROW_MIDDLEWARES(app, RequestSpan)
+      .methods("POST"_method)([&app_config](const crow::request& req){
+        auto tracer = get_tracer("todoui-cpp-tracer");
+        std::string span_name(crow::method_name(req.method));
+        // start active span
+        opentelemetry::trace::StartSpanOptions options;
+        options.kind = opentelemetry::trace::SpanKind::kClient;  // client
+      
+        CROW_LOG_INFO << std::format("POST  {}/todos/{}",
+          opentelemetry::nostd::get<std::string>(app_config["BACKEND_URL"]), req.body
+        );
 
-    CROW_LOG_INFO << std::format("POST  {}/todos/{}",
-      opentelemetry::nostd::get<std::string>(app_config["BACKEND_URL"]), req.body
-    );
-    
-    crow::query_string qs = req.get_body_params();
-    auto cpr_resp = cpr::Post(cpr::Url{
-      opentelemetry::nostd::get<std::string>(app_config["BACKEND_URL"]) + qs.get("todo")
-    });
-    CROW_LOG_DEBUG << "Delete| CPR status code: " 
-      << cpr_resp.status_code << " CPR response: " << cpr_resp.text;
-
-    span->End();
-
-    crow::response resp;
-    resp.moved("/");
-    return resp;
-  });
+        // extract context from http header
+        auto extract_ctx = opentelemetry::context::RuntimeContext::GetCurrent();
+        opentelemetry::ext::http::client::Headers request_headers;
+        for ( auto p : req.headers){
+          request_headers.insert({p.first, p.second});
+        }
+        // get global propagator
+        HttpTextMapCarrier<opentelemetry::ext::http::client::Headers> carrier(request_headers);
+        auto propagator = opentelemetry::context::propagation::GlobalTextMapPropagator::GetGlobalPropagator();
+        auto new_ctx = propagator->Extract(carrier, extract_ctx);
+        options.parent = opentelemetry::trace::GetSpan(new_ctx)->GetContext();
+        auto span = tracer->StartSpan(span_name,
+                                  {/*{opentelemetry::semconv::url::kUrlFull, url.str()},*/
+                                  {opentelemetry::semconv::url::kUrlScheme, "http"/*url_parser.scheme_*/},
+                                  {opentelemetry::semconv::http::kHttpRequestMethod, "POST"}},
+                                  options);
+        auto active_scope = tracer->WithActiveSpan(span);
+        
+        // inject context
+        auto insert_ctx = opentelemetry::context::RuntimeContext::GetCurrent();
+        HttpTextMapCarrier<opentelemetry::ext::http::client::Headers> carrier2;
+        propagator->Inject(carrier2, insert_ctx);
+        
+        /////////////////////////////////////////
+        // TODO
+        // problemtatic conversion from opentelemetry headers into cpr's
+        // std::mutimap -> std::map
+        cpr::Header crp_headers;
+        //for (auto p : carrier.headers_){
+        for (auto p : carrier2.headers_){
+          crp_headers.insert(p);
+        }
+        /////////////////////////////////////////
+        crow::query_string qs = req.get_body_params();
+        auto cpr_resp = cpr::Post(cpr::Url{
+            opentelemetry::nostd::get<std::string>(app_config["BACKEND_URL"]) + qs.get("todo")
+          },
+          crp_headers
+        );
+      
+        if (!cpr_resp.error){
+          span->SetAttribute(opentelemetry::semconv::http::kHttpResponseStatusCode, cpr_resp.status_code);
+          for(auto h : cpr_resp.header){
+            span->SetAttribute("http.header." + std::string(h.first), h.second);
+          }
+          if (cpr_resp.status_code >= 400) {
+            span->SetStatus(opentelemetry::trace::StatusCode::kError);
+          }
+        } else {
+          span->SetStatus(
+            opentelemetry::trace::StatusCode::kError,
+            "Response Status :" + cpr_resp.status_line);
+        }
+        
+        CROW_LOG_DEBUG << "Delete| CPR status code: " 
+          << cpr_resp.status_code << " CPR response: " << cpr_resp.text;
+      
+        span->End();
+      
+        crow::response resp;
+        resp.moved("/");
+        return resp;
+      });
 
   app.port(
     opentelemetry::nostd::get<uint16_t>(app_config["FRONTEND_PORT"])

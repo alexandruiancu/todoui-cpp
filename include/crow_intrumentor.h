@@ -17,9 +17,9 @@ struct RequestSpan : crow::ILocalMiddleware
             opentelemetry::trace::StartSpanOptions options;
             options.kind = opentelemetry::trace::SpanKind::kServer;
             span = tracer->StartSpan(req.url, 
-              {{std::make_pair(opentelemetry::semconv::url::kUrlFull, "http://localhost:5000")},
+              {/*{std::make_pair(opentelemetry::semconv::url::kUrlFull, "http://localhost:5000")},*/
               {std::make_pair(opentelemetry::semconv::url::kUrlScheme, "http")},
-              {std::make_pair(opentelemetry::semconv::http::kHttpRequestMethod, "GET")}},
+              {std::make_pair(opentelemetry::semconv::http::kHttpRequestMethod, crow::method_name(req.method))}},
               options);
             auto active_scope = tracer->WithActiveSpan(span);
 
