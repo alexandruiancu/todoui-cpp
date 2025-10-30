@@ -10,15 +10,48 @@ set( CMAKE_CXX_EXTENSIONS OFF )
 include("${todoui-cpp_SOURCE_DIR}/cmake/opentelemetry-cpp.cmake")
 include("${todoui-cpp_SOURCE_DIR}/cmake/crow.cmake")
 include("${todoui-cpp_SOURCE_DIR}/cmake/cpr.cmake")
+set( spdlog_GIT_TAG v1.16.0 )
+set( SPDLOG_HEADER_ONLY ON )
+include("${todoui-cpp_SOURCE_DIR}/cmake/spdlog.cmake")
 
 set(include_DIR "${todoui-cpp_SOURCE_DIR}/include")
 add_executable(todoui-cpp "driver.cpp")
 
- target_include_directories (todoui-cpp PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include")
+target_include_directories (todoui-cpp PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include")
 target_link_libraries(todoui-cpp PRIVATE 
-    Crow::Crow cpr::cpr 
-    opentelemetry-cpp::ostream_span_exporter
+    cpr::cpr
+    # Crow targets
+    Crow::Crow
+    # opentelemetry targets
     opentelemetry-cpp::api
     opentelemetry-cpp::sdk
+    opentelemetry-cpp::ostream_span_exporter
     opentelemetry-cpp::otlp_http_exporter
-    opentelemetry-cpp::otlp_grpc_exporter)
+    opentelemetry-cpp::otlp_grpc_exporter
+    # spdlog targets
+    spdlog::spdlog_header_only
+)
+
+add_custom_command(TARGET todoui-cpp POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_CURRENT_SOURCE_DIR}/templates
+    $<TARGET_FILE_DIR:todoui-cpp>/templates
+    COMMENT "useful when running without install, from build directory"
+)
+
+# Set the install prefix
+# use command line -DCMAKE_INSTALL_PREFIX=${workspaceFolder}/build/opt to set prefix
+
+# Install the dependency's targets if they are exported
+# Note: This assumes the dependency properly exports its targets
+install(TARGETS todoui-cpp cpr 
+    RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+    LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_PREFIX}/include/
+)
+
+# Optional: Install any additional files (configs, resources, etc.)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/templates
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+)
