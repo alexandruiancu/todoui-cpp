@@ -3,9 +3,10 @@ project( todoui-cpp )
 
 # Place CXX flags here or later ?
 #set( CMAKE_CXX_FLAGS "-g3 -Wall" ) - not sure this is the right place
-set( CMAKE_CXX_STANDARD 23 )
-set( CMAKE_CXX_STANDARD_REQUIRED ON )
-set( CMAKE_CXX_EXTENSIONS OFF )
+#set( CMAKE_CXX_STANDARD 23 )
+set( CMAKE_CXX_STANDARD 20 )
+#set( CMAKE_CXX_STANDARD_REQUIRED ON )
+#set( CMAKE_CXX_EXTENSIONS OFF )
 
 # add package manager
 include(cmake/CPM.cmake)
@@ -33,14 +34,38 @@ CPMAddPackage(
 CPMAddPackage("gh:libcpr/cpr#1.12.0")
 CPMAddPackage("gh:gabime/spdlog@1.16.0")
 
+## (a)
+#CPMAddPackage("gh:jinja2cpp/Jinja2Cpp#1.3.2")
+## (b)
+#add_subdirectory(Jinja2Cpp)
+## (c)
+#find_package(Jinja2Cpp REQUIRED)
+
+CPMAddPackage(
+  NAME jinja2cpp
+#  GITHUB_REPOSITORY jinja2cpp/Jinja2Cpp
+  GITHUB_REPOSITORY alexandruiancu/Jinja2Cpp
+#  GIT_TAG 1.3.2
+  GIT_TAG publish-library-dependencies
+#  OPTIONS
+#      "JINJA2CPP_DEPS_MODE=internal"
+#      "JINJA2CPP_BUILD_SHARED=OFF"
+  )
+
+#CPMAddPackage("gh:kroketio/Jinja2CppMedium")
+#CPMAddPackage(
+#  NAME jinja2cpp_medium
+#  GITHUB_REPOSITORY git@github.com:kroketio/Jinja2CppMedium.git
+##  OPTIONS
+##      "JINJA2CPP_DEPS_MODE=internal"
+##      "JINJA2CPP_BUILD_SHARED=OFF"
+#  )
+
 set(include_DIR "${todoui-cpp_SOURCE_DIR}/include")
 add_executable(todoui-cpp "driver.cpp")
 
 target_include_directories (todoui-cpp PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include")
 target_link_libraries(todoui-cpp PRIVATE 
-    cpr::cpr
-    # Crow targets
-    Crow::Crow
     # opentelemetry targets
     opentelemetry-cpp::api
     opentelemetry-cpp::sdk
@@ -49,6 +74,12 @@ target_link_libraries(todoui-cpp PRIVATE
     opentelemetry-cpp::otlp_grpc_exporter
     # spdlog targets
     spdlog::spdlog_header_only
+
+    cpr::cpr
+    # Crow targets
+    Crow::Crow
+    ## jinja2
+    jinja2cpp
 )
 
 add_custom_command(TARGET todoui-cpp POST_BUILD
