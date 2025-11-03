@@ -23,7 +23,6 @@
 #include "utils.h"
 
 #include "jinja2cpp/template.h"
-#include "rapidjson/document.h"
 
 using namespace std;
 namespace trace_api = opentelemetry::trace;
@@ -114,12 +113,10 @@ int main(int argc, char *argv[]) {
           }
           return v;
         };
-        auto build_elements_v2 = [&](const rapidjson::Document &doc) {
+        auto build_elements_v2 = [&](const crow::json::rvalue &json) {
           jinja2::ValuesList v;
-          for(auto& t : doc.GetArray()) {
-              jinja2::ValuesMap c;
-              c["todo"] = std::string(t.GetString());  // or appropriate getter based on type
-              v.push_back(c);
+          for(auto& t : json) {
+              v.emplace_back(t.s());
           }
           return v;
         };
@@ -154,14 +151,7 @@ int main(int argc, char *argv[]) {
         //  build_elements(crow::json::load(cpr_resp.text))
         //);
 
-        // Parse JSON string
-        rapidjson::Document doc;
-        doc.Parse(cpr_resp.text.c_str());
-        // Check for parse errors (optional but recommended)
-        if(doc.HasParseError()) {
-            // Handle error
-        }
-        todos["todos"] = build_elements_v2(doc);
+        todos["todos"] = build_elements_v2(crow::json::load(cpr_resp.text));
         span->End();
 
         //return page.render(todos);
