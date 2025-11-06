@@ -2,11 +2,10 @@ cmake_minimum_required( VERSION 3.20 )
 project( todoui-cpp )
 
 # Place CXX flags here or later ?
-#set( CMAKE_CXX_FLAGS "-g3 -Wall" ) - not sure this is the right place
 #set( CMAKE_CXX_STANDARD 23 )
 set( CMAKE_CXX_STANDARD 20 )
-#set( CMAKE_CXX_STANDARD_REQUIRED ON )
-#set( CMAKE_CXX_EXTENSIONS OFF )
+set( CMAKE_CXX_STANDARD_REQUIRED ON )
+set( CMAKE_CXX_EXTENSIONS OFF )
 
 # add package manager
 include(cmake/CPM.cmake)
@@ -47,9 +46,8 @@ CPMAddPackage(
   GITHUB_REPOSITORY alexandruiancu/Jinja2Cpp
 #  GIT_TAG 1.3.2
   GIT_TAG publish-library-dependencies
-#  OPTIONS
-#      "JINJA2CPP_DEPS_MODE=internal"
-#      "JINJA2CPP_BUILD_SHARED=OFF"
+  OPTIONS
+      "JINJA2CPP_WITH_JSON_BINDINGS=rapid"
   )
 
 #CPMAddPackage("gh:kroketio/Jinja2CppMedium")

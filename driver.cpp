@@ -69,9 +69,6 @@ int main(int argc, char *argv[]) {
         // start active span
         opentelemetry::trace::StartSpanOptions options;
         options.kind = opentelemetry::trace::SpanKind::kClient;  // client
-        //opentelemetry::ext::http::common::UrlParser url_parser(
-        //  std::get<std::string>(app_config["BACKEND_URL"])
-        //);
         cpr::Url url{
           opentelemetry::nostd::get<std::string>(app_config["BACKEND_URL"])
         };
@@ -186,8 +183,7 @@ int main(int argc, char *argv[]) {
         auto new_ctx = propagator->Extract(carrier, extract_ctx);
         options.parent = opentelemetry::trace::GetSpan(new_ctx)->GetContext();
         auto span = tracer->StartSpan(span_name,
-                                  {/*{opentelemetry::semconv::url::kUrlFull, url.str()},*/
-                                  {opentelemetry::semconv::url::kUrlScheme, "http"/*url_parser.scheme_*/},
+                                  {{opentelemetry::semconv::url::kUrlScheme, "http"},
                                   {opentelemetry::semconv::http::kHttpRequestMethod, "POST"}},
                                   options);
         auto active_scope = tracer->WithActiveSpan(span);
