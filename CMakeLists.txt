@@ -15,12 +15,14 @@ CPMAddPackage(
     GITHUB_REPOSITORY open-telemetry/opentelemetry-cpp
     GIT_TAG v1.23.0
     OPTIONS
+        "BUILD_SHARED_LIBS ON"
         "WITH_ABSEIL ON"
         "WITH_OTLP_HTTP ON"
         "WITH_OTLP_GRPC ON"
         "WITH_BENCHMARK OFF"
         "WITH_EXAMPLES OFF"
         "WITH_TESTS OFF"
+        "OPENTELEMETRY_INSTALL ON"
 )
 CPMAddPackage(
     NAME crow
@@ -92,14 +94,19 @@ add_custom_command(TARGET todoui-cpp POST_BUILD
 
 # Install the dependency's targets if they are exported
 # Note: This assumes the dependency properly exports its targets
-install(TARGETS todoui-cpp cpr 
-    RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
-    LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
-    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_PREFIX}/include/
+install(TARGETS 
+    todoui-cpp 
+    cpr 
+    jinja2cpp 
+    libcurl_shared 
+
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
 # Optional: Install any additional files (configs, resources, etc.)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/templates
-    DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
