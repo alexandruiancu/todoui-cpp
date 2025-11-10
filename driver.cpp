@@ -51,11 +51,6 @@ int main(int argc, char *argv[]) {
     {"service.instance.id", "instance-1"}
   };
 
-  n_error = init_attributes(app_config, resource_attributes);
-  if (0 != n_error) {
-    return n_error;
-  }
-
   InitTracer(app_config, resource_attributes);
 
   crow::App<RequestSpan> app;
@@ -321,25 +316,30 @@ int main(int argc, char *argv[]) {
 }
 
 int init_app_config(ConfigMapT &config){
+
+  auto add_env_to_config = [&config]<typename T = std::string>(const char *pszName) {
+    if (NULL == pszName ) {
+      return;
+    }
+    const char *pszVal = std::getenv(pszName);
+    if ( NULL == pszVal) {
+      return;
+    }
+    std::stringstream ss;
+    ss << pszVal;
+    T tmp;
+    ss >> tmp;
+    config[pszName] = tmp;
+  };
+
   // app specific
-  const char *pszEnvFrontendPort = std::getenv("BACKEND_PORT");
-  if (pszEnvFrontendPort != nullptr)
-    config["FRONTEND_PORT"] = (uint16_t)(std::stoul(pszEnvFrontendPort));
-  const char *pszEnvBackendURL = std::getenv("BACKEND_URL");
-  if (pszEnvBackendURL != nullptr)
-    config["BACKEND_URL"] = pszEnvBackendURL;
-
+  add_env_to_config.operator()<uint16_t>("FRONTEND_PORT");
+  add_env_to_config("BACKEND_URL");
   // OTEL
-  const char *pszEnv = std::getenv("OTEL_EXPORTER_OTLP_ENDPOINT");
-  if (pszEnv != nullptr)
-    config["OTEL_EXPORTER_OTLP_ENDPOINT"] = pszEnv;
-  pszEnv = std::getenv("OTEL_RESOURCE_ATTRIBUTES");
-  if (pszEnv != nullptr)
-    config["OTEL_RESOURCE_ATTRIBUTES"] = pszEnv;
-  pszEnv = std::getenv("OTEL_METRICS_EXPORTER");
-  if (pszEnv != nullptr)
-    config["OTEL_METRICS_EXPORTER"] = pszEnv;
-
+  add_env_to_config("OTEL_EXPORTER_OTLP_ENDPOINT");
+  add_env_to_config("OTEL_RESOURCE_ATTRIBUTES");
+  add_env_to_config("OTEL_METRICS_EXPORTER");
+  // defaults
   ConfigMapT defaults{
     {"FRONTEND_PORT", (uint16_t)5000},
     {"BACKEND_URL", "http://localhost:8080/todos/"}
@@ -350,10 +350,5 @@ int init_app_config(ConfigMapT &config){
     }
   });
 
-  return 0;
-}
-
-int init_attributes(const ConfigMapT &config, opentelemetry::sdk::resource::ResourceAttributes &ra){
-  //TODO implement
   return 0;
 }
