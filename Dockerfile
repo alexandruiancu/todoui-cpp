@@ -38,7 +38,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-    libasio-dev \
+#    libasio-dev \
     libcurlpp0t64 \
     libpsl5t64 \
     libgrpc++1.51t64 \
