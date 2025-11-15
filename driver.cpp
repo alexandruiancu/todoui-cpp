@@ -29,7 +29,7 @@ namespace trace_api = opentelemetry::trace;
 namespace trace_sdk = opentelemetry::sdk::trace;
 namespace trace_exporter = opentelemetry::exporter::trace;
 
-InstrumentLogger glblLogger;
+//InstrumentLogger glblLogger;
 
 int main(int argc, char *argv[]) {
   ConfigMapT app_config;
@@ -38,10 +38,13 @@ int main(int argc, char *argv[]) {
     return n_error;
   }
 
-  crow::logger::setHandler(&glblLogger);
-  //crow::logger::setLogLevel(crow::LogLevel::Debug);
+  InitLogger();
+  InstrumentLogger localLogger;
+  
+  crow::logger::setHandler(&localLogger);
+  crow::logger::setLogLevel(crow::LogLevel::Debug);
   //crow::logger::setLogLevel(crow::LogLevel::Info);
-  crow::logger::setLogLevel(crow::LogLevel::Warning);
+  //crow::logger::setLogLevel(crow::LogLevel::Warning);
 
   // Create a resource with service name
   auto resource_attributes = opentelemetry::sdk::resource::ResourceAttributes {
@@ -341,8 +344,8 @@ int init_app_config(ConfigMapT &config){
   add_env_to_config("OTEL_METRICS_EXPORTER");
   // defaults
   ConfigMapT defaults{
-    {"FRONTEND_PORT", (uint16_t)5000},
-    {"BACKEND_URL", "http://localhost:8080/todos/"}
+    {"FRONTEND_PORT", (uint16_t)5001},
+    {"BACKEND_URL", "http://localhost:8081/todos/"}
   };
   std::for_each(defaults.begin(), defaults.end(), [&config](auto it){
     if(!config.contains(it.first)){

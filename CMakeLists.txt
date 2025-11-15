@@ -72,6 +72,7 @@ target_link_libraries(todoui-cpp PRIVATE
     opentelemetry-cpp::ostream_span_exporter
     opentelemetry-cpp::otlp_http_exporter
     opentelemetry-cpp::otlp_grpc_exporter
+    opentelemetry-cpp::otlp_grpc_log_record_exporter
     # spdlog targets
     spdlog::spdlog_header_only
 
