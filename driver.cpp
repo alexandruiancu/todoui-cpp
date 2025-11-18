@@ -280,7 +280,7 @@ int main(int argc, char *argv[]) {
         }
         /////////////////////////////////////////
         crow::query_string qs = req.get_body_params();
-        auto cpr_resp = cpr::Post(cpr::Url{
+        auto cpr_resp = cpr::Delete(cpr::Url{
             opentelemetry::nostd::get<std::string>(app_config["BACKEND_URL"]) + qs.get("todo")
           },
           crp_headers
