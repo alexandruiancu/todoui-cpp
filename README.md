@@ -1,5 +1,6 @@
 # todo UI cpp
 C++ UI reimplementation of [LFS148](https://github.com/lftraining/LFS148-code)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/alexandruiancu/todoui-cpp)
 ## Building:
 Usual CMake recipe in CMakeLists.no-cpm.txt
 A cleaner/simplier recipe using CMake dependency management
