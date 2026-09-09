@@ -13,7 +13,7 @@ include(cmake/CPM.cmake)
 CPMAddPackage(
     NAME opentelemetry-cpp
     GITHUB_REPOSITORY open-telemetry/opentelemetry-cpp
-    GIT_TAG v1.23.0
+    GIT_TAG v1.28.0
     OPTIONS
         "BUILD_SHARED_LIBS ON"
         "WITH_ABSEIL ON"
@@ -44,12 +44,15 @@ CPMAddPackage("gh:gabime/spdlog@1.16.0")
 
 CPMAddPackage(
   NAME jinja2cpp
-#  GITHUB_REPOSITORY jinja2cpp/Jinja2Cpp
-  GITHUB_REPOSITORY alexandruiancu/Jinja2Cpp
+  GITHUB_REPOSITORY jinja2cpp/Jinja2Cpp
+  GIT_TAG master
 #  GIT_TAG 1.3.2
-  GIT_TAG fix-thirdparty-internal-deps
-  OPTIONS
-      "JINJA2CPP_WITH_JSON_BINDINGS=rapid"
+
+#  GITHUB_REPOSITORY alexandruiancu/Jinja2Cpp
+#  GIT_TAG fix-thirdparty-internal-deps
+#  OPTIONS
+#  #      "JINJA2CPP_WITH_JSON_BINDINGS=rapid"
+#  	"JINJA2CPP_WITH_JSON_BINDINGS=boost"
   )
 
 #CPMAddPackage("gh:kroketio/Jinja2CppMedium")
