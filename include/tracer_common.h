@@ -14,9 +14,9 @@
 #include "opentelemetry/exporters/otlp/otlp_http_exporter_options.h"
 #include "opentelemetry/exporters/otlp/otlp_http_exporter_factory.h"
 
-#include "opentelemetry/exporters/otlp/otlp_grpc_exporter.h"
-#include "opentelemetry/exporters/otlp/otlp_grpc_exporter_options.h"
-#include "opentelemetry/exporters/otlp/otlp_grpc_exporter_factory.h"
+//#include "opentelemetry/exporters/otlp/otlp_grpc_exporter.h"
+//#include "opentelemetry/exporters/otlp/otlp_grpc_exporter_options.h"
+//#include "opentelemetry/exporters/otlp/otlp_grpc_exporter_factory.h"
 
 #include "opentelemetry/nostd/shared_ptr.h"
 #include "opentelemetry/sdk/trace/exporter.h"
@@ -33,7 +33,7 @@
 #include "opentelemetry/trace/propagation/http_trace_context.h"
 #include "opentelemetry/trace/provider.h"
 
-#include <grpcpp/grpcpp.h>
+//#include <grpcpp/grpcpp.h>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -43,11 +43,11 @@
 
 #include "utils.h"
 
-using grpc::ClientContext;
-using grpc::ServerContext;
+//using grpc::ClientContext;
+//using grpc::ServerContext;
 namespace trace_sdk = opentelemetry::sdk::trace;
 
-const uint16_t nDefaultGrpcCollector = 4317;
+//const uint16_t nDefaultGrpcCollector = 4317;
 const uint16_t nDefaultHttpCollector = 4318;
 
 namespace
@@ -89,26 +89,26 @@ namespace
     T headers_;
   };
   
-  class GrpcClientCarrier : public opentelemetry::context::propagation::TextMapCarrier
-  {
-  public:
-    GrpcClientCarrier(ClientContext *context) : context_(context) {}
-    GrpcClientCarrier() = default;
-    virtual opentelemetry::nostd::string_view Get(
-        opentelemetry::nostd::string_view /* key */) const noexcept override
-    {
-      return "";
-    }
-  
-    virtual void Set(opentelemetry::nostd::string_view key,
-                     opentelemetry::nostd::string_view value) noexcept override
-    {
-      std::cout << " Client ::: Adding " << key << " " << value << "\n";
-      context_->AddMetadata(std::string(key), std::string(value));
-    }
-  
-    ClientContext *context_ = nullptr;
-  };
+  // class GrpcClientCarrier : public opentelemetry::context::propagation::TextMapCarrier
+  // {
+  // public:
+  //   GrpcClientCarrier(ClientContext *context) : context_(context) {}
+  //   GrpcClientCarrier() = default;
+  //   virtual opentelemetry::nostd::string_view Get(
+  //       opentelemetry::nostd::string_view /* key */) const noexcept override
+  //   {
+  //     return "";
+  //   }
+  // 
+  //   virtual void Set(opentelemetry::nostd::string_view key,
+  //                    opentelemetry::nostd::string_view value) noexcept override
+  //   {
+  //     std::cout << " Client ::: Adding " << key << " " << value << "\n";
+  //     context_->AddMetadata(std::string(key), std::string(value));
+  //   }
+  // 
+  //   ClientContext *context_ = nullptr;
+  // };
 
 // handy for debug
 //auto build_console_processor()
@@ -143,7 +143,7 @@ namespace
         auto exporter = opentelemetry::exporter::otlp::OtlpHttpExporterFactory::Create(opts);
   
         return exporter;
-      } else if constexpr(std::same_as<T, opentelemetry::exporter::otlp::OtlpGrpcExporterOptions>) {
+      } /*else if constexpr(std::same_as<T, opentelemetry::exporter::otlp::OtlpGrpcExporterOptions>) {
         if ( 0 == port ) {
           port = nDefaultGrpcCollector;
         }
@@ -160,7 +160,7 @@ namespace
         auto exporter = opentelemetry::exporter::otlp::OtlpGrpcExporterFactory::Create(opts);
   
         return exporter;
-      }
+      }*/
     };
   
     auto processor_fnc = [&]<typename T>() {
@@ -170,8 +170,8 @@ namespace
             trace_sdk::SimpleSpanProcessorFactory::Create(std::move(exporter));
   
         return processor;
-      } else if constexpr(std::same_as<T, opentelemetry::exporter::otlp::OtlpHttpExporter> ||
-          std::same_as<T, opentelemetry::exporter::otlp::OtlpGrpcExporter>) {
+      } else if constexpr(std::same_as<T, opentelemetry::exporter::otlp::OtlpHttpExporter> /*||
+          std::same_as<T, opentelemetry::exporter::otlp::OtlpGrpcExporter>*/) {
   
           auto exporter = exporter_fnc.template operator()<ExporterOptionsT>(port);
           trace_sdk::BatchSpanProcessorOptions bspOpts;
@@ -195,14 +195,14 @@ namespace
     std::vector<std::unique_ptr<trace_sdk::SpanProcessor>> processors;
     //processors.push_back(
     //  std::move(build_processor<opentelemetry::exporter::trace::OStreamSpanExporter, void>(config)));
-    //processors.push_back(
-    //  std::move(build_processor<opentelemetry::exporter::otlp::OtlpHttpExporter, 
-    //            opentelemetry::exporter::otlp::OtlpHttpExporterOptions>(config)
-    //            ));
     processors.push_back(
-      std::move(build_processor<opentelemetry::exporter::otlp::OtlpGrpcExporter, 
-                opentelemetry::exporter::otlp::OtlpGrpcExporterOptions>(config)
+      std::move(build_processor<opentelemetry::exporter::otlp::OtlpHttpExporter, 
+                opentelemetry::exporter::otlp::OtlpHttpExporterOptions>(config)
                 ));
+    //processors.push_back(
+    //  std::move(build_processor<opentelemetry::exporter::otlp::OtlpGrpcExporter, 
+    //            opentelemetry::exporter::otlp::OtlpGrpcExporterOptions>(config)
+    //            ));
   
     std::shared_ptr<opentelemetry::trace::TracerProvider> provider = 
       trace_sdk::TracerProviderFactory::Create(
