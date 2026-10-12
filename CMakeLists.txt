@@ -21,6 +21,8 @@ set( CMAKE_CXX_EXTENSIONS OFF )
 # add package manager
 include(cmake/CPM.cmake)
 
+find_package(CURL REQUIRED)
+
 CPMAddPackage(
     NAME opentelemetry-cpp
     GITHUB_REPOSITORY open-telemetry/opentelemetry-cpp
@@ -87,7 +89,12 @@ set(include_DIR "${todoui-cpp_SOURCE_DIR}/include")
 add_executable(todoui-cpp "driver.cpp")
 
 target_include_directories (todoui-cpp PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include")
-target_link_libraries(todoui-cpp PRIVATE 
+target_link_libraries(todoui-cpp
+    PRIVATE
+
+    ## curl targets
+    CURL::libcurl
+
     # opentelemetry targets
     opentelemetry-cpp::api
     opentelemetry-cpp::sdk
@@ -98,13 +105,12 @@ target_link_libraries(todoui-cpp PRIVATE
     # spdlog targets
     spdlog::spdlog_header_only
 
+    ## CPR targets
     cpr::cpr
-    # Crow targets
+    ## Crow targets
     Crow::Crow
     ## jinja2
     jinja2cpp
-    ## curl
-    libcurl_shared
 )
 
 add_custom_command(TARGET todoui-cpp POST_BUILD
