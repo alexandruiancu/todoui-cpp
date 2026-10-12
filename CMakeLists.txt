@@ -103,6 +103,8 @@ target_link_libraries(todoui-cpp PRIVATE
     Crow::Crow
     ## jinja2
     jinja2cpp
+    ## curl
+    libcurl_shared
 )
 
 add_custom_command(TARGET todoui-cpp POST_BUILD
