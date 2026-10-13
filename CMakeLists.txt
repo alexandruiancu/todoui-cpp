@@ -86,7 +86,7 @@ CPMAddPackage(
 #  )
 
 set(include_DIR "${todoui-cpp_SOURCE_DIR}/include")
-add_executable(todoui-cpp "driver.cpp")
+add_executable(todoui-cpp "driver.cpp" "ThreadPool.cpp")
 
 target_include_directories (todoui-cpp PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include")
 target_link_libraries(todoui-cpp
