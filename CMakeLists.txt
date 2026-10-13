@@ -7,8 +7,21 @@ set( CMAKE_CXX_STANDARD 20 )
 set( CMAKE_CXX_STANDARD_REQUIRED ON )
 set( CMAKE_CXX_EXTENSIONS OFF )
 
+# 
+# The OpenSSL 4.0 release removed the ENGINE API and its header
+# <openssl/engine.h>.  The grpc dependency still includes this header
+# in its ssl_transport_security implementation. 
+# But "up-to-date applications should not include openssl/engine.h at all."
+# see: https://openssl-library.org/post/2025-12-18-remove-engines/
+# add_compile_definitions(OPENSSL_ENGINE_STUBS)
+# 
+# for distros already upgraded to 4.0 see: https://github.com/grpc/grpc/issues/37789 
+#
+
 # add package manager
 include(cmake/CPM.cmake)
+
+find_package(CURL REQUIRED)
 
 CPMAddPackage(
     NAME opentelemetry-cpp
@@ -18,10 +31,18 @@ CPMAddPackage(
         "BUILD_SHARED_LIBS ON"
         "WITH_ABSEIL ON"
         "WITH_OTLP_HTTP ON"
-        "WITH_OTLP_GRPC ON"
+        "WITH_OTLP_GRPC OFF"
         "WITH_BENCHMARK OFF"
         "WITH_EXAMPLES OFF"
         "WITH_TESTS OFF"
+        # new flags
+        "OTELCPP_WITH_ABSEIL ON"
+        "OTELCPP_WITH_OTLP_HTTP ON"
+        "OTELCPP_WITH_OTLP_GRPC OFF"
+        "OTELCPP_WITH_BENCHMARK OFF"
+        "OTELCPP_WITH_EXAMPLES OFF"
+        "OTELCPP_WITH_TESTS OFF"
+
         "OPENTELEMETRY_INSTALL ON"
 )
 CPMAddPackage(
@@ -68,19 +89,25 @@ set(include_DIR "${todoui-cpp_SOURCE_DIR}/include")
 add_executable(todoui-cpp "driver.cpp")
 
 target_include_directories (todoui-cpp PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include")
-target_link_libraries(todoui-cpp PRIVATE 
+target_link_libraries(todoui-cpp
+    PRIVATE
+
+    ## curl targets
+    CURL::libcurl
+
     # opentelemetry targets
     opentelemetry-cpp::api
     opentelemetry-cpp::sdk
     opentelemetry-cpp::ostream_span_exporter
     opentelemetry-cpp::otlp_http_exporter
-    opentelemetry-cpp::otlp_grpc_exporter
-    opentelemetry-cpp::otlp_grpc_log_record_exporter
+    # opentelemetry-cpp::otlp_grpc_exporter
+    # opentelemetry-cpp::otlp_grpc_log_record_exporter
     # spdlog targets
     spdlog::spdlog_header_only
 
+    ## CPR targets
     cpr::cpr
-    # Crow targets
+    ## Crow targets
     Crow::Crow
     ## jinja2
     jinja2cpp
