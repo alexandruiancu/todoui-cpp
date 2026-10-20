@@ -34,7 +34,7 @@ CPMAddPackage(
         "WITH_OTLP_GRPC OFF"
         "WITH_BENCHMARK OFF"
         "WITH_EXAMPLES OFF"
-        "WITH_TESTS OFF"
+        "WITH_TESTS ON"
         # new flags
         "OTELCPP_WITH_ABSEIL ON"
         "OTELCPP_WITH_OTLP_HTTP ON"
@@ -51,7 +51,7 @@ CPMAddPackage(
     GIT_TAG v1.3.0
     OPTIONS
         "CROW_BUILD_EXAMPLES=OFF"
-        "CROW_BUILD_TESTS=OFF"
+        "CROW_BUILD_TESTS=ON"
 )
 CPMAddPackage("gh:libcpr/cpr#1.12.0")
 CPMAddPackage("gh:gabime/spdlog@1.16.0")
@@ -86,7 +86,8 @@ CPMAddPackage(
 #  )
 
 set(include_DIR "${todoui-cpp_SOURCE_DIR}/include")
-add_executable(todoui-cpp "driver.cpp" "ThreadPool.cpp")
+add_executable(todoui-cpp "driver.cpp" "ThreadPool.cpp"
+  tests/cpr_offload_test.cpp)
 
 target_include_directories (todoui-cpp PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include")
 target_link_libraries(todoui-cpp
